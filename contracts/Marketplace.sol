@@ -3,11 +3,12 @@ pragma solidity ^0.8.1;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Payment.sol";
 
-contract Marketplace is ReentrancyGuard, Ownable {
+contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
     using Counters for Counters.Counter;
     Counters.Counter private _listingIds;
     Counters.Counter private _listingsSold;
@@ -131,5 +132,9 @@ contract Marketplace is ReentrancyGuard, Ownable {
         }
 
         _listingsSold.increment();
+    }
+
+     function onERC721Received(address, address, uint256, bytes memory) public virtual override returns (bytes4) {
+        return this.onERC721Received.selector;
     }
 }
