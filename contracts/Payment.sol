@@ -2,8 +2,9 @@
 pragma solidity ^0.8.1;
 
 import "@openzeppelin/contracts/finance/PaymentSplitter.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Payment is PaymentSplitter {
+contract Payment is PaymentSplitter, Ownable {
     string public paymentTitle;
 
     // _payee comprise creator,commission

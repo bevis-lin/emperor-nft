@@ -20,8 +20,8 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
     }
 
     enum ListingType {
-        First,
-        Second
+        Primary,
+        Secondary
     }
 
     struct Listing {
@@ -47,16 +47,19 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
         uint256 indexed listingId,
         uint256 indexed tokenId,
         address seller,
-        address owner,
         uint256 price
     );
 
-    function createListing(
+    function createPrimaryListing(
         uint256 tokenId,
         uint256 price,
         address payable paymentAddress
-    ) public nonReentrant {
+    ) public onlyOwner nonReentrant {
         require(price > 0, "Price must be at least 1 wei");
+        require(
+            owner() == Payment(paymentAddress).owner(),
+            "Payment should belong to listing owner"
+        );
 
         _listingIds.increment();
         uint256 listingId = _listingIds.current();
@@ -67,7 +70,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
             price,
             payable(msg.sender),
             payable(Payment(paymentAddress)),
-            ListingType.First,
+            ListingType.Primary,
             ListingStatus.Open,
             address(0)
         );
@@ -78,7 +81,35 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
             tokenId
         );
 
-        emit ListingCreated(listingId, tokenId, msg.sender, address(0), price);
+        emit ListingCreated(listingId, tokenId, msg.sender, price);
+    }
+
+    function createSecondaryListing(uint256 tokenId, uint256 price)
+        public
+        nonReentrant
+    {
+        require(price > 0, "Price must be at least 1 wei");
+        _listingIds.increment();
+        uint256 listingId = _listingIds.current();
+
+        listings[listingId] = Listing(
+            listingId,
+            tokenId,
+            price,
+            payable(msg.sender),
+            payable(address(0)),
+            ListingType.Secondary,
+            ListingStatus.Open,
+            address(0)
+        );
+
+        IERC721(nftContract).safeTransferFrom(
+            msg.sender,
+            address(this),
+            tokenId
+        );
+
+        emit ListingCreated(listingId, tokenId, msg.sender, price);
     }
 
     function deListing(uint256 listingId) public {
@@ -121,7 +152,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
         uint256 operationFee = (price * 200) / 10000;
         uint256 transferAmount = price - operationFee;
 
-        if (listings[listingID].listingType == ListingType.First) {
+        if (listings[listingID].listingType == ListingType.Primary) {
             listings[listingID].payment.transfer(transferAmount);
             nftContract.transferFrom(address(this), transferTo, tokenId);
             listings[listingID].buyer = transferTo;
@@ -134,7 +165,12 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
         _listingsSold.increment();
     }
 
-     function onERC721Received(address, address, uint256, bytes memory) public virtual override returns (bytes4) {
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes memory
+    ) public virtual override returns (bytes4) {
         return this.onERC721Received.selector;
     }
 }
