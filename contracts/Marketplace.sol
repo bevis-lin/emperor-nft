@@ -3,12 +3,21 @@ pragma solidity ^0.8.1;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Payment.sol";
 
-contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
+contract Marketplace is
+    IERC165,
+    IERC721Receiver,
+    IERC1155Receiver,
+    ReentrancyGuard,
+    Ownable
+{
     using Counters for Counters.Counter;
     Counters.Counter private _listingIds;
     Counters.Counter private _listingsSold;
@@ -19,6 +28,11 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
         Sold
     }
 
+    enum TokenType {
+        ERC721,
+        ERC1155
+    }
+
     enum ListingType {
         Primary,
         Secondary
@@ -26,6 +40,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
 
     struct Listing {
         uint256 listingId;
+        TokenType tokenType;
         uint256 tokenId;
         uint256 price;
         address payable seller; //who list this sale
@@ -38,9 +53,11 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
     mapping(uint256 => Listing) private listings;
 
     IERC721 nftContract;
+    IERC1155 nftFusionContract;
 
-    constructor(address nftContractAddress) {
+    constructor(address nftContractAddress, address nftFusionContractAddress) {
         nftContract = IERC721(nftContractAddress);
+        nftFusionContract = IERC1155(nftFusionContractAddress);
     }
 
     event ListingCreated(
@@ -51,6 +68,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
     );
 
     function createPrimaryListing(
+        TokenType tokenType,
         uint256 tokenId,
         uint256 price,
         address payable paymentAddress
@@ -66,6 +84,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
 
         listings[listingId] = Listing(
             listingId,
+            tokenType,
             tokenId,
             price,
             payable(msg.sender),
@@ -75,16 +94,22 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
             address(0)
         );
 
-        IERC721(nftContract).safeTransferFrom(
+        if(tokenType == TokenType.ERC721){
+            IERC721(nftContract).safeTransferFrom(
             msg.sender,
             address(this),
             tokenId
-        );
+            );
+        }else{
+            IERC1155(nftFusionContract).safeTransferFrom(msg.sender, address(this),tokenId,1,"0x0");
+        }
 
+
+        
         emit ListingCreated(listingId, tokenId, msg.sender, price);
     }
 
-    function createSecondaryListing(uint256 tokenId, uint256 price)
+    function createSecondaryListing(TokenType tokenType, uint256 tokenId, uint256 price)
         public
         nonReentrant
     {
@@ -94,6 +119,7 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
 
         listings[listingId] = Listing(
             listingId,
+            tokenType,
             tokenId,
             price,
             payable(msg.sender),
@@ -154,11 +180,21 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
 
         if (listings[listingID].listingType == ListingType.Primary) {
             listings[listingID].payment.transfer(transferAmount);
-            nftContract.transferFrom(address(this), transferTo, tokenId);
+            if(listings[listingID].tokenType == TokenType.ERC721){
+                nftContract.transferFrom(address(this), transferTo, tokenId);
+            }else{
+                nftFusionContract.safeTransferFrom(address(this), transferTo, tokenId, 1, "0x0");
+            }
+            
             listings[listingID].buyer = transferTo;
         } else {
             listings[listingID].seller.transfer(transferAmount);
+            if(listings[listingID].tokenType == TokenType.ERC721){
+            
             nftContract.transferFrom(address(this), msg.sender, tokenId);
+            }else{
+                nftFusionContract.safeTransferFrom(address(this), msg.sender, tokenId, 1, "0x0");
+            }
             listings[listingID].buyer = msg.sender;
         }
 
@@ -172,5 +208,37 @@ contract Marketplace is IERC721Receiver, ReentrancyGuard, Ownable {
         bytes memory
     ) public virtual override returns (bytes4) {
         return this.onERC721Received.selector;
+    }
+
+    function onERC1155Received(
+        address operator,
+        address from,
+        uint256 id,
+        uint256 value,
+        bytes calldata data
+    ) public virtual override returns (bytes4) {
+        return this.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(
+        address operator,
+        address from,
+        uint256[] calldata ids,
+        uint256[] calldata values,
+        bytes calldata data
+    ) public virtual override returns (bytes4) {
+        return this.onERC1155BatchReceived.selector;
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
+        return
+            interfaceId == type(IERC721Receiver).interfaceId ||
+            interfaceId == type(IERC1155Receiver).interfaceId;
     }
 }
