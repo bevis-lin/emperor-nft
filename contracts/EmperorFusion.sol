@@ -8,6 +8,7 @@ contract EmperorFusion is ERC1155 {
     using Counters for Counters.Counter;
     Counters.Counter private currentTokenId;
     mapping(uint256 => string) private _uris;
+    string public name = "Emperor";
 
     constructor() public ERC1155("") {}
 

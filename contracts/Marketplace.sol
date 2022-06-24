@@ -128,12 +128,16 @@ contract Marketplace is
             ListingStatus.Open,
             address(0)
         );
-
-        IERC721(nftContract).safeTransferFrom(
-            msg.sender,
-            address(this),
-            tokenId
-        );
+        
+        if(tokenType == TokenType.ERC721){
+            IERC721(nftContract).safeTransferFrom(
+                msg.sender,
+                address(this),
+                tokenId
+            );
+        }else{
+            IERC1155(nftFusionContract).safeTransferFrom(msg.sender, address(this),tokenId,1,"0x0");
+        }
 
         emit ListingCreated(listingId, tokenId, msg.sender, price);
     }
