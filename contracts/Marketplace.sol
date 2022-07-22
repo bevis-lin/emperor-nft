@@ -94,25 +94,30 @@ contract Marketplace is
             address(0)
         );
 
-        if(tokenType == TokenType.ERC721){
+        if (tokenType == TokenType.ERC721) {
             IERC721(nftContract).safeTransferFrom(
-            msg.sender,
-            address(this),
-            tokenId
+                msg.sender,
+                address(this),
+                tokenId
             );
-        }else{
-            IERC1155(nftFusionContract).safeTransferFrom(msg.sender, address(this),tokenId,1,"0x0");
+        } else {
+            IERC1155(nftFusionContract).safeTransferFrom(
+                msg.sender,
+                address(this),
+                tokenId,
+                1,
+                "0x0"
+            );
         }
 
-
-        
         emit ListingCreated(listingId, tokenId, msg.sender, price);
     }
 
-    function createSecondaryListing(TokenType tokenType, uint256 tokenId, uint256 price)
-        public
-        nonReentrant
-    {
+    function createSecondaryListing(
+        TokenType tokenType,
+        uint256 tokenId,
+        uint256 price
+    ) public nonReentrant {
         require(price > 0, "Price must be at least 1 wei");
         _listingIds.increment();
         uint256 listingId = _listingIds.current();
@@ -128,18 +133,32 @@ contract Marketplace is
             ListingStatus.Open,
             address(0)
         );
-        
-        if(tokenType == TokenType.ERC721){
+
+        if (tokenType == TokenType.ERC721) {
             IERC721(nftContract).safeTransferFrom(
                 msg.sender,
                 address(this),
                 tokenId
             );
-        }else{
-            IERC1155(nftFusionContract).safeTransferFrom(msg.sender, address(this),tokenId,1,"0x0");
+        } else {
+            IERC1155(nftFusionContract).safeTransferFrom(
+                msg.sender,
+                address(this),
+                tokenId,
+                1,
+                "0x0"
+            );
         }
 
         emit ListingCreated(listingId, tokenId, msg.sender, price);
+    }
+
+    function getListingById(uint256 listingId)
+        public
+        view
+        returns (Listing memory)
+    {
+        return listings[listingId];
     }
 
     function deListing(uint256 listingId) public {
@@ -184,20 +203,31 @@ contract Marketplace is
 
         if (listings[listingID].listingType == ListingType.Primary) {
             listings[listingID].payment.transfer(transferAmount);
-            if(listings[listingID].tokenType == TokenType.ERC721){
+            if (listings[listingID].tokenType == TokenType.ERC721) {
                 nftContract.transferFrom(address(this), transferTo, tokenId);
-            }else{
-                nftFusionContract.safeTransferFrom(address(this), transferTo, tokenId, 1, "0x0");
+            } else {
+                nftFusionContract.safeTransferFrom(
+                    address(this),
+                    transferTo,
+                    tokenId,
+                    1,
+                    "0x0"
+                );
             }
-            
+
             listings[listingID].buyer = transferTo;
         } else {
             listings[listingID].seller.transfer(transferAmount);
-            if(listings[listingID].tokenType == TokenType.ERC721){
-            
-            nftContract.transferFrom(address(this), msg.sender, tokenId);
-            }else{
-                nftFusionContract.safeTransferFrom(address(this), msg.sender, tokenId, 1, "0x0");
+            if (listings[listingID].tokenType == TokenType.ERC721) {
+                nftContract.transferFrom(address(this), msg.sender, tokenId);
+            } else {
+                nftFusionContract.safeTransferFrom(
+                    address(this),
+                    msg.sender,
+                    tokenId,
+                    1,
+                    "0x0"
+                );
             }
             listings[listingID].buyer = msg.sender;
         }
