@@ -67,6 +67,14 @@ contract Marketplace is
         uint256 price
     );
 
+    event ListingDelisted(
+        uint256 indexed listingId,
+        string tokenType,
+        uint256 indexed tokenId,
+        address seller,
+        uint256 price
+    );
+
     function createPrimaryListing(
         TokenType tokenType,
         uint256 tokenId,
@@ -164,6 +172,30 @@ contract Marketplace is
     function deListing(uint256 listingId) public {
         Listing storage listing = listings[listingId];
         listing.status = ListingStatus.Close;
+
+        if (listing.tokenType == TokenType.ERC721) {
+            IERC721(nftContract).safeTransferFrom(
+                address(this),
+                listing.seller,
+                listing.tokenId
+            );
+        } else {
+            IERC1155(nftFusionContract).safeTransferFrom(
+                address(this),
+                listing.seller,
+                listing.tokenId,
+                1,
+                "0x0"
+            );
+        }
+
+        emit ListingDelisted(
+            listing.listingId,
+            listing.tokenType,
+            listing.tokenId,
+            listing.seller,
+            listing.price
+        );
     }
 
     function getUnsoldListings() public view returns (Listing[] memory) {
